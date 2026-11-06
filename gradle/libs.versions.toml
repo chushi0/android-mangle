@@ -1,0 +1,11 @@
+[versions]
+# The plugin compiles against the oldest supported AGP API; see README for the tested matrix.
+agpApi = "8.5.0"
+asm = "9.9"
+junit = "4.13.2"
+
+[libraries]
+agp-api = { group = "com.android.tools.build", name = "gradle-api", version.ref = "agpApi" }
+asm = { group = "org.ow2.asm", name = "asm", version.ref = "asm" }
+asm-tree = { group = "org.ow2.asm", name = "asm-tree", version.ref = "asm" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }

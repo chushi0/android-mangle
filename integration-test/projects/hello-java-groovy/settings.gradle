@@ -1,0 +1,21 @@
+pluginManagement {
+    repositories {
+        maven { url = uri(providers.gradleProperty('mangleRepo').get()) }
+        google()
+        mavenCentral()
+    }
+    plugins {
+        id 'com.android.application' version providers.gradleProperty('agpVersion').get()
+        id 'cc.cszt0.mangle' version providers.gradleProperty('mangleVersion').get()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+    repositories {
+        maven { url = uri(providers.gradleProperty('mangleRepo').get()) }
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'hello-java-groovy'
+include ':app'
