@@ -34,10 +34,27 @@ class ManifestTest {
     @Test
     fun `manifest survives a round trip`() {
         val file = temp.newFile()
-        MangleManifest(mapOf("a.Foo" to setOf("x", "y"), "a.Empty" to emptySet())).write(file)
+        MangleManifest(mapOf("a.Foo" to setOf("x", "y"), "a.Empty" to emptySet()), setOf("a.Foo\$Renamed")).write(file)
+        val manifest = MangleManifest.read(file)
+        assertEquals(mapOf("a.Empty" to emptySet(), "a.Foo" to setOf("x", "y")), manifest.entries)
+        assertEquals(setOf("a.Foo\$Renamed"), manifest.renamed)
+    }
+
+    @Test
+    fun `renamed classes get a constant and keep only their constructors`() {
+        val manifest = MangleManifest(emptyMap(), setOf("a.Foo\$Failure"))
+        assertEquals(listOf("A_FOO_FAILURE"), manifest.identifiers("k").map { it.constant })
         assertEquals(
-            mapOf("a.Empty" to emptySet(), "a.Foo" to setOf("x", "y")),
-            MangleManifest.read(file).entries,
+            "-keep class ${Naming.mangleClass("k", "a.Foo\$Failure")} { <init>(...); }\n",
+            Renderer.keepRules(manifest, "k"),
         )
+    }
+
+    @Test
+    fun `a renamed class cannot also host moved methods`() {
+        val failure = runCatching {
+            MangleManifest(mapOf("a.Foo" to setOf("nat")), setOf("a.Foo")).identifiers("k")
+        }.exceptionOrNull()
+        assertTrue(failure.toString(), failure is GradleException && "a.Foo" in failure.message!!)
     }
 }

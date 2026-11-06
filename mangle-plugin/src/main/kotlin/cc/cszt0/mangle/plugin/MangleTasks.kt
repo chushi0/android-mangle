@@ -115,18 +115,16 @@ abstract class MangleTransformTask : DefaultTask() {
     fun run() {
         val entries = readEntries()
         val classes = entries.filterKeys(::isClass).mapKeys { it.key.removeSuffix(".class") }
+        val manifest = MangleManifest.read(manifestFile.get().asFile)
+        val warn = { message: String -> logger.warn("Mangle: $message") }
+        val renamed = ClassRenamer(classes, manifest, secretKey.get(), warn).run()
         val result = JarPlatformClasses(bootClasspath.get().map { it.asFile }).use { platform ->
-            ClassMover(
-                classes,
-                MangleManifest.read(manifestFile.get().asFile),
-                secretKey.get(),
-                platform,
-            ) { logger.warn("Mangle: $it") }.run()
+            ClassMover(renamed.classes, manifest, secretKey.get(), platform, warn).run()
         }
         val output = TreeMap(entries.filterKeys { !isClass(it) })
         result.classes.forEach { (name, bytes) -> output["$name.class"] = bytes }
         writeJar(output)
-        mappingFragment.get().asFile.writeText(result.mapping)
+        mappingFragment.get().asFile.writeText(renamed.mapping + result.mapping)
     }
 
     private fun isClass(path: String) =

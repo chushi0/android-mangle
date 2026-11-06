@@ -7,7 +7,8 @@ import java.security.MessageDigest
  *
  * Retrace lets the last section of an obfuscated class win, and R8 already wrote one for each
  * kept class, under the mangled names. So our section carries R8's line ranges over, with the
- * original method names, or stack traces would lose their line numbers.
+ * original method names, or stack traces would lose their line numbers. A renamed class has no
+ * members in our section because its members keep their names, so R8's lines carry over as they are.
  */
 internal object R8MappingMerger {
     private val SECTION = Regex("""^(\S+) -> (\S+):$""")
@@ -24,7 +25,9 @@ internal object R8MappingMerger {
             }
             appended.append(header).append('\n')
             members.forEach { appended.append(it).append('\n') }
-            r8Sections["$mangledClass -> $mangledClass:"].orEmpty().forEach { line ->
+            val r8Members = r8Sections["$mangledClass -> $mangledClass:"].orEmpty()
+            if (members.isEmpty()) r8Members.forEach { appended.append(it).append('\n') }
+            r8Members.forEach { line ->
                 val member = MEMBER.matchEntire(line)
                 val original = member?.let { originalNames[it.groupValues[2]] }
                 if (original != null) {

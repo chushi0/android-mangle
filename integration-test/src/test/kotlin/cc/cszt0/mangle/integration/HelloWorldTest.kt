@@ -39,7 +39,7 @@ class HelloWorldTest(private val fixture: Fixture, agpGradleJdk: String) {
                 expectedLog = "greeting=Hello world features=ok",
                 forbidden = listOf(
                     "GreetingBridge", "GreetingSource", "readGreeting", "loadGreeting", "nativeGreeting",
-                    "MangleIdentifiers", "Features", "selfTest", "access\$mangle",
+                    "MangleIdentifiers", "Features", "selfTest", "access\$mangle", "NativeFailure", "failNatively",
                 ),
             ),
             Fixture(

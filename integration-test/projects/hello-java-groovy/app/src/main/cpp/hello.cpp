@@ -11,6 +11,11 @@ static jstring nativeGreeting(JNIEnv *env, jclass, jobject /* self */) {
     return static_cast<jstring>(env->CallStaticObjectMethod(bridge, read));
 }
 
+static void failNatively(JNIEnv *env, jclass) {
+    jclass failure = env->FindClass(COM_EXAMPLE_HELLO_GREETINGBRIDGE_NATIVEFAILURE);
+    if (failure != nullptr) env->ThrowNew(failure, nullptr);
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) return JNI_ERR;
@@ -22,5 +27,13 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
              reinterpret_cast<void *>(nativeGreeting)},
     };
     if (env->RegisterNatives(holder, methods, 1) != JNI_OK) return JNI_ERR;
+
+    jclass bridge = env->FindClass(COM_EXAMPLE_HELLO_GREETINGBRIDGE);
+    if (bridge == nullptr) return JNI_ERR;
+    const JNINativeMethod bridgeMethods[] = {
+            {COM_EXAMPLE_HELLO_GREETINGBRIDGE_FAILNATIVELY, "()V",
+             reinterpret_cast<void *>(failNatively)},
+    };
+    if (env->RegisterNatives(bridge, bridgeMethods, 1) != JNI_OK) return JNI_ERR;
     return JNI_VERSION_1_6;
 }

@@ -19,7 +19,7 @@ import org.objectweb.asm.tree.MultiANewArrayInsnNode
 import org.objectweb.asm.tree.TypeInsnNode
 import org.objectweb.asm.tree.VarInsnNode
 
-private const val MANGLE_DESC = "Lcc/cszt0/mangle/annotation/Mangle;"
+internal const val MANGLE_DESC = "Lcc/cszt0/mangle/annotation/Mangle;"
 private const val KEEP_DESC = "Landroidx/annotation/Keep;"
 private const val OBJECT = "java/lang/Object"
 
@@ -109,7 +109,6 @@ internal class ClassMover(
 
     private fun moveClass(internalName: String, binaryName: String, selected: Set<String>) {
         val host = node(internalName)
-        val classMangled = host.invisibleAnnotations.hasMangle()
         val target = ClassNode().apply {
             version = host.version
             access = ACC_PUBLIC or ACC_FINAL or ACC_SUPER
@@ -125,7 +124,7 @@ internal class ClassMover(
         host.methods.toList().forEach { method ->
             val eligible = method.name in selected && !method.name.startsWith("<") &&
                 method.access and (ACC_SYNTHETIC or ACC_BRIDGE or ACC_ABSTRACT) == 0 &&
-                (classMangled || method.isNative() || method.invisibleAnnotations.hasMangle())
+                (method.isNative() || method.invisibleAnnotations.hasMangle())
             if (eligible) {
                 moveMethod(host, binaryName, method, target, rewriter)
                 moved += method.name
@@ -133,7 +132,6 @@ internal class ClassMover(
         }
         (selected - moved).forEach { warn("$binaryName.$it was found in source but could not be moved.") }
 
-        host.invisibleAnnotations?.removeIf { it.desc == MANGLE_DESC }
         widenClass(internalName)
         dirty += internalName
     }

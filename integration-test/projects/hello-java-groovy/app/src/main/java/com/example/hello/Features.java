@@ -105,6 +105,7 @@ class Features extends Base implements Greeter {
         if (!f.locked()) return "locked";
         if (f.branches(4) != 42) return "branches:" + f.branches(4);
         if (!overloaded(1).equals("int1") || !overloaded("a").equals("stringa")) return "overloaded";
+        if (!GreetingBridge.nativeThrowIsCaught()) return "nativeThrow";
         return "ok";
     }
 }

@@ -11,7 +11,10 @@ Mangle does not encrypt string literals or hide logic. It only replaces names.
 
 ## How it works
 
-For each selected method, Mangle moves the compiled body into a new class and leaves a wrapper:
+Mangle does one of two things, depending on where `@Mangle` is. On a class, it renames that class
+to a hash in the default package and rewrites every reference, which is what you need for a class
+native code has to find, such as an exception it throws. On a method, it moves the compiled body
+into a new class and leaves a wrapper:
 
 ```java
 // You write
@@ -40,7 +43,7 @@ public class Greeter {                       // R8 is still free to rename or in
 | --- | --- | --- |
 | Before javac | `mangleScan<Variant>` parses `.java` sources | `MangleIdentifiers.java`, R8 keep rules |
 | Before CMake | `mangleGenerateHeader` | `java_mangle.h` |
-| After javac, before R8 | `mangleTransform<Variant>` moves methods with ASM | Transformed classes |
+| After javac, before R8 | `mangleTransform<Variant>` renames classes and moves methods with ASM | Transformed classes |
 | After R8 | Last action of `minify<Variant>WithR8` | Our mapping appended to `mapping.txt` |
 | No R8 | `mangleMapping<Variant>` | `mapping.txt` holding only our mapping |
 
@@ -171,22 +174,31 @@ class Bridge {
     @Mangle static String read() { ... }   // this method
 }
 
-@Mangle
-class Source { ... }                       // every method declared here, static or not
-
 class Jni {
     native String call();                  // always moved, no annotation needed
 }
+
+@Mangle
+class Failure extends Exception { ... }    // the class itself is renamed; its methods are not moved
 ```
 
 Constructors, static initializers, fields, abstract methods and compiler-generated methods stay
-where they are. `@Mangle` on a class does not extend to its nested classes.
+where they are when methods move.
+
+`@Mangle` on a class renames that class only, not its nested classes. Its constructors are kept, so
+native code can create or throw it. Its other members get no constant and R8 renames them as usual,
+so native code cannot look them up by name. Leaving the package would cut off package-private and
+private access, so classes and members used across that boundary become public.
+
+A class annotated with `@Mangle` cannot also have `native` or `@Mangle` methods, because methods move
+to a class with the very name the renamed class takes. The build fails and names the class; move
+those methods elsewhere, or annotate the methods instead of the class.
 
 ### 3. Use the names
 
-Every moved class and method gets a constant, with the same name in both languages: the full
-original name, upper-cased, with every non-alphanumeric character replaced by `_`. Overloads share
-one constant.
+Every renamed class, moved class and method gets a constant, with the same name in both languages:
+the full original name, upper-cased, with every non-alphanumeric character replaced by `_`. Overloads
+share one constant.
 
 ```java
 // cc.cszt0.mangle.MangleIdentifiers (generated; not kept, R8 removes it)
@@ -200,8 +212,8 @@ public static final String COM_EXAMPLE_SOURCE_LOAD = "m48abfb896a91253e";
 #define COM_EXAMPLE_SOURCE_LOAD "m48abfb896a91253e"
 ```
 
-The class constant works unchanged for both `Class.forName` and `FindClass`, because new classes
-are in the default package. Always use the new class, not the original one:
+The class constant works unchanged for both `Class.forName` and `FindClass`, because new and renamed
+classes are in the default package. Always use the new class, not the original one:
 
 ```java
 Class<?> source = Class.forName(MangleIdentifiers.COM_EXAMPLE_SOURCE);
@@ -250,9 +262,24 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
 Reflection follows the same rules: `getMethod(name, Object.class, ...)`, then
 `invoke(null, receiver, ...)` for what was an instance method.
 
+**A renamed class is used like any other class,** only under its constant. Java keeps using it by its
+original name, and a type that is renamed is still erased to `Object` in new method signatures.
+
+```java
+package com.example;
+public class Checker {
+    @Mangle private static class Failure extends Exception {}
+    private static native int next() throws Failure;
+}
+```
+
+```cpp
+env->ThrowNew(env->FindClass(COM_EXAMPLE_CHECKER_FAILURE), nullptr);
+```
+
 ## Mapping
 
-`build/outputs/mapping/<variant>/mapping.txt` gains one section per moved class, in R8's format:
+`build/outputs/mapping/<variant>/mapping.txt` gains one section per renamed or moved class, in R8's format:
 
 ```
 com.example.Source -> m51977d5129d0d0da:
@@ -261,7 +288,8 @@ com.example.Source -> m51977d5129d0d0da:
 ```
 
 R8's own content is left in place. Two things are added so that tools keep working: R8's line
-ranges for the new classes are repeated under the original names, and `pg_map_hash` is recomputed
+ranges for the new classes are repeated under the original names (for a renamed class, all of R8's
+member lines are repeated, since members keep their names), and `pg_map_hash` is recomputed
 to cover the appended text. `retrace` restores original names and line numbers, and
 `retrace --verify-mapping-file-hash` passes. `pg_map_id` is unchanged.
 
@@ -274,6 +302,11 @@ to cover the appended text. `retrace` restores original names and line numbers, 
   dependencies is not processed either.
 - **Local and anonymous classes are not processed.** `@Mangle` methods in them are left unchanged,
   with a warning.
+- **Renamed classes must not be referenced by name outside bytecode.** Only class files are
+  rewritten, so an `Activity` in `AndroidManifest.xml`, a `View` in a layout or a `Class.forName`
+  string still using the original name breaks at runtime.
+- **Widening a private method to public can make it overridable.** If a subclass declares a method
+  with the same signature as a private method that had to be widened, calls may reach the subclass.
 - **Lambda bodies stay in the original class.** They compile to synthetic methods that are not
   moved, so they are obfuscated by R8 as usual but do not end up in the new class.
 - **The constant name scheme can collide.** Names are upper-cased and `$`, `.` map to `_`, so

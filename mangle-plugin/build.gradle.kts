@@ -45,6 +45,7 @@ sourceSets.main { resources.srcDir(generateVersionResource) }
 dependencies {
     compileOnly(libs.agp.api)
     implementation(libs.asm)
+    implementation(libs.asm.commons)
     implementation(libs.asm.tree)
     testImplementation(libs.junit)
     testImplementation(project(":mangle-annotation"))

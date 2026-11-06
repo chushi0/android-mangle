@@ -13,4 +13,20 @@ class GreetingBridge {
         Method method = source.getMethod(MangleIdentifiers.COM_EXAMPLE_HELLO_GREETINGSOURCE_LOADGREETING);
         return (String) method.invoke(null);
     }
+
+    /** Native code finds this class by its mangled name and throws it. */
+    @Mangle
+    private static class NativeFailure extends Exception {
+    }
+
+    private static native void failNatively() throws NativeFailure;
+
+    static boolean nativeThrowIsCaught() {
+        try {
+            failNatively();
+            return false;
+        } catch (NativeFailure expected) {
+            return true;
+        }
+    }
 }

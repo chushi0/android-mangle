@@ -28,6 +28,7 @@ internal object JavaSourceScanner {
             ?: throw GradleException("Mangle needs Gradle to run on a JDK, not a JRE.")
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val found = mutableMapOf<String, MutableSet<String>>()
+        val renamed = mutableSetOf<String>()
         compiler.getStandardFileManager(diagnostics, null, Charsets.UTF_8).use { fileManager ->
             val task = compiler.getTask(
                 null,
@@ -41,11 +42,11 @@ internal object JavaSourceScanner {
                 val packagePrefix = unit.packageName?.let { "$it." } ?: ""
                 val simpleNameIsMangle = importsMangle(unit)
                 unit.typeDecls.filterIsInstance<ClassTree>().forEach {
-                    scanClass(it, packagePrefix + it.simpleName, simpleNameIsMangle, found)
+                    scanClass(it, packagePrefix + it.simpleName, simpleNameIsMangle, found, renamed)
                 }
             }
         }
-        return MangleManifest(found)
+        return MangleManifest(found, renamed)
     }
 
     private fun importsMangle(unit: CompilationUnitTree): Boolean =
@@ -61,17 +62,17 @@ internal object JavaSourceScanner {
         binaryName: String,
         simpleNameIsMangle: Boolean,
         found: MutableMap<String, MutableSet<String>>,
+        renamed: MutableSet<String>,
     ) {
-        val classMangled = tree.modifiers.hasMangle(simpleNameIsMangle)
-        if (classMangled) found.getOrPut(binaryName) { mutableSetOf() }
+        if (tree.modifiers.hasMangle(simpleNameIsMangle)) renamed += binaryName
         tree.members.forEach { member ->
             when (member) {
-                is ClassTree -> scanClass(member, "$binaryName\$${member.simpleName}", simpleNameIsMangle, found)
+                is ClassTree -> scanClass(member, "$binaryName\$${member.simpleName}", simpleNameIsMangle, found, renamed)
                 is MethodTree -> {
                     val name = member.name.toString()
                     val native = Modifier.NATIVE in member.modifiers.flags
                     val hasBody = member.body != null
-                    val selected = native || (hasBody && (classMangled || member.modifiers.hasMangle(simpleNameIsMangle)))
+                    val selected = native || (hasBody && member.modifiers.hasMangle(simpleNameIsMangle))
                     if (selected && name != "<init>") found.getOrPut(binaryName) { mutableSetOf() } += name
                 }
             }

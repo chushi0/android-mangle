@@ -10,11 +10,14 @@ class JavaSourceScannerTest {
     val temp = TemporaryFolder()
 
     private fun scan(source: String) =
-        JavaSourceScanner.scan(listOf(temp.newFolder().resolve("Sample.java").apply { writeText(source) })).entries
+        scanManifest(source).entries
+
+    private fun scanManifest(source: String) =
+        JavaSourceScanner.scan(listOf(temp.newFolder().resolve("Sample.java").apply { writeText(source) }))
 
     @Test
-    fun `selects annotated methods, annotated classes and native methods`() {
-        val entries = scan(
+    fun `moves annotated and native methods, and renames annotated classes without moving their methods`() {
+        val manifest = scanManifest(
             """
             package a.b;
             import cc.cszt0.mangle.annotation.Mangle;
@@ -35,14 +38,8 @@ class JavaSourceScannerTest {
             }
             """,
         )
-        assertEquals(
-            mapOf(
-                "a.b.Sample" to setOf("annotated", "nat"),
-                "a.b.Sample\$Nested" to setOf("one", "two"),
-                "a.b.Sample\$Abstract" to setOf("hasBody"),
-            ),
-            entries,
-        )
+        assertEquals(mapOf("a.b.Sample" to setOf("annotated", "nat")), manifest.entries)
+        assertEquals(setOf("a.b.Sample\$Nested", "a.b.Sample\$Abstract"), manifest.renamed)
     }
 
     @Test

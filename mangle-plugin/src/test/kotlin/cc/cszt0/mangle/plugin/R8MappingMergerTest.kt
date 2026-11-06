@@ -36,6 +36,25 @@ class R8MappingMergerTest {
     }
 
     @Test
+    fun `carries every R8 line of a renamed class over`() {
+        val r8 = """
+            m1 -> m1:
+                1:3:void <init>():10:12 -> <init>
+                4:4:int size():20:20 -> a
+
+        """.trimIndent()
+        assertEquals(
+            """
+            a.Foo${'$'}Failure -> m1:
+                1:3:void <init>():10:12 -> <init>
+                4:4:int size():20:20 -> a
+
+            """.trimIndent(),
+            R8MappingMerger.merge(r8, "a.Foo\$Failure -> m1:\n").removePrefix(r8),
+        )
+    }
+
+    @Test
     fun `refreshes the hash over everything after it`() {
         val merged = R8MappingMerger.merge("# pg_map_hash: SHA-256 00\nm1 -> m1:\n", fragment)
         val (header, rest) = merged.split("\n", limit = 2)
