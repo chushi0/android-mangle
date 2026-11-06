@@ -26,7 +26,7 @@ class ManglePlugin : Plugin<Project> {
 
     private fun configure(project: Project, extension: MangleExtension) {
         val version = javaClass.getResource("version.txt")!!.readText().trim()
-        project.dependencies.add("compileOnly", "cc.cszt0.mangle:mangle-annotation:$version")
+        project.dependencies.add("compileOnly", "com.github.chushi0.android-mangle:mangle-annotation:$version")
 
         val headerTask = project.tasks.register("mangleGenerateHeader", MangleHeaderTask::class.java) {
             secretKey.set(extension.key)

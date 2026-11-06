@@ -1,4 +1,4 @@
 subprojects {
-    group = "cc.cszt0.mangle"
-    version = "1.0.0"
+    group = "com.github.chushi0.android-mangle"
+    version = "1.0.1"
 }

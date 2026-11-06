@@ -70,16 +70,71 @@ Your source language must be Java for code to be moved; see [Known issues](#know
 
 ### 1. Apply the plugin
 
-The repository that serves the plugin must also serve `cc.cszt0.mangle:mangle-annotation`, because
-the plugin adds it to `compileOnly` for you.
+Mangle is published on [JitPack](https://jitpack.io/#chushi0/android-mangle). JitPack moves every
+artifact to the group `com.github.chushi0.android-mangle`, including the plugin marker, so Gradle
+cannot find the plugin by its id alone and needs a `resolutionStrategy`. JitPack must also be in
+the dependency repositories, because the plugin adds
+`com.github.chushi0.android-mangle:mangle-annotation` to `compileOnly` for you.
 
-Only `com.android.application` modules are supported.
+```groovy
+// settings.gradle
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url = uri('https://jitpack.io') }
+    }
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == 'cc.cszt0.mangle') {
+                useModule("com.github.chushi0.android-mangle:mangle-plugin:${target.version}")
+            }
+        }
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri('https://jitpack.io') }
+    }
+}
+```
+
+```kotlin
+// settings.gradle.kts
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url = uri("https://jitpack.io") }
+    }
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "cc.cszt0.mangle") {
+                useModule("com.github.chushi0.android-mangle:mangle-plugin:${target.version}")
+            }
+        }
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+```
+
+Then apply it. Only `com.android.application` modules are supported.
 
 ```groovy
 // build.gradle
 plugins {
     id 'com.android.application'
-    id 'cc.cszt0.mangle' version '1.0.0'
+    id 'cc.cszt0.mangle' version '1.0.1'
 }
 
 mangle {
@@ -92,7 +147,7 @@ mangle {
 // build.gradle.kts
 plugins {
     id("com.android.application")
-    id("cc.cszt0.mangle") version "1.0.0"
+    id("cc.cszt0.mangle") version "1.0.1"
 }
 
 mangle {
